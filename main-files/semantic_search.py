@@ -2,18 +2,11 @@ import PyPDF2
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
+import pathlib
+import os
 import google.generativeai as genai
 from api_keys import API_KEY
-
-# Download NLTK resources
-nltk.download('punkt')
-nltk.download('stopwords')
-
-# Configure Google Generative AI
-genai.configure(api_key=API_KEY)
+import re
 
 # Function to extract text from the PDF
 def extract_text_from_pdf(file):
@@ -47,17 +40,25 @@ def compute_cosine_similarity(text1, text2):
     cosine_sim = cosine_similarity(vectors)
     return cosine_sim[0, 1]
 
+# Placeholder function for generating improvements using Gemini API
+def generate_improvements(offer_text, resume_text):
+    # Replace this with the actual Gemini API call
+    return "Improvements suggestions based on offer letter and resume content."
+
 # Function to highlight missing keywords
 def highlight_missing_keywords(offer_text, resume_text):
-    stop_words = set(stopwords.words('english'))
-    offer_words = set(word_tokenize(offer_text.lower())) - stop_words
-    resume_words = set(word_tokenize(resume_text.lower())) - stop_words
+    offer_words = set(offer_text.split())
+    resume_words = set(resume_text.split())
     missing_words = offer_words - resume_words
     return missing_words
 
+# Access your API key as an environment variable.
+genai.configure(api_key=API_KEY)
+
+
 # Function to generate improvements
 def generate_improvements(qualifications, discipline, internship_offer, resume_text):
-    instructions = f"You are a resume evaluator, provide short but precise suggestions and improvements in bullet points for the following internship offer letter: {qualifications}, {discipline}, {internship_offer}, when prompted with RESUME CONTENTS"
+    instructions = f"You are a resume evaluator, provide detailed suggestions and improvements in bullet points for the following internship offer letter: {qualifications}, {discipline}, {internship_offer}, when prompted with RESUME CONTENTS"
     model = genai.GenerativeModel(
         model_name="gemini-1.5-flash",
         system_instruction=instructions
@@ -69,24 +70,11 @@ def generate_improvements(qualifications, discipline, internship_offer, resume_t
         response_text += response.text
         yield response.text
 
-# Streamlit App
-st.title("Semantic Search Between Offer Letter and Resume")
 
-# File uploaders for offer letter and resume
-offer_letter_file = st.file_uploader("Upload Offer Letter PDF", type="pdf", key="offers")
-resume_file = st.file_uploader("Upload Resume PDF", type="pdf", key="resume")
-
-if offer_letter_file is not None:
+def offer_letter_process_pdf_2(offer_letter_file,resume_file):
     offer_letter_text = extract_text_from_pdf(offer_letter_file)
-    st.subheader("Offer Letter Content")
-    st.text(offer_letter_text)
-
-if resume_file is not None:
     resume_text = extract_text_from_pdf(resume_file)
-    st.subheader("Resume Content")
-    st.text(resume_text)
 
-if offer_letter_file is not None and resume_file is not None:
     similarity_score = compute_cosine_similarity(offer_letter_text, resume_text)
     st.write(f"Similarity Score: {similarity_score:.2f}")
 
@@ -105,9 +93,10 @@ if offer_letter_file is not None and resume_file is not None:
     missing_keywords = highlight_missing_keywords(qualifications + ' ' + discipline + ' ' + internship_offer, resume_text)
     st.write(", ".join(missing_keywords))
 
-    # Generate improvements
+  # Generate improvements
     st.write("### Suggested Improvements for Resume")
     placeholder = st.empty()
     improvements_generator = generate_improvements(qualifications, discipline, internship_offer, resume_text)
     for improvement in improvements_generator:
-        placeholder.write(improvement)
+        print(improvement)
+        placeholder.code(improvement)
