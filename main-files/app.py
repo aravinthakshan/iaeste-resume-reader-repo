@@ -1,6 +1,6 @@
 import streamlit as st
-from pdf_reader import process_pdf as offer_letter_process_pdf, extract_content_after_keyword
-from semantic_search import compute_cosine_similarity, extract_text_from_pdf, highlight_missing_keywords, generate_improvements,main
+from pdf_reader import process_pdf as offer_letter_process_pdf
+from semantic_search import main
 
 # Navigation
 page = st.selectbox("Choose a page", ["Offer Letter Extractor", "Resume Review"])
