@@ -2,11 +2,12 @@ import PyPDF2
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import pathlib
-import os
 import google.generativeai as genai
-from api_keys import API_KEY
+from api_keys import API_KEY  # Assuming you have API_KEY imported
 import re
+
+# Access your API key as an environment variable.
+genai.configure(api_key=API_KEY)
 
 # Function to extract text from the PDF
 def extract_text_from_pdf(file):
@@ -40,10 +41,25 @@ def compute_cosine_similarity(text1, text2):
     cosine_sim = cosine_similarity(vectors)
     return cosine_sim[0, 1]
 
-# Placeholder function for generating improvements using Gemini API
-def generate_improvements(offer_text, resume_text):
-    # Replace this with the actual Gemini API call
-    return "Improvements suggestions based on offer letter and resume content."
+def LLM_Response(chat,resume_text):
+    response = chat.send_message(resume_text,stream=True)
+    return response
+
+# Function to generate improvements using Gemini API
+def generate_improvements(qualifications, discipline, internship_offer, resume_text):
+    instructions = f"You are a Resume Reviewer, here is the job description for an internship: {qualifications}, {discipline}, {internship_offer}, when prompted with a candidates RESUME CONTENTS; provide detailed suggestions and improvements"
+
+    model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=instructions
+        )
+        
+    chat = model.start_chat()
+
+    result = LLM_Response(chat,resume_text)
+
+    for word in result:
+        st.text(word.text)
 
 # Function to highlight missing keywords
 def highlight_missing_keywords(offer_text, resume_text):
@@ -52,51 +68,36 @@ def highlight_missing_keywords(offer_text, resume_text):
     missing_words = offer_words - resume_words
     return missing_words
 
-# Access your API key as an environment variable.
-genai.configure(api_key=API_KEY)
+# Streamlit app
+def main():
 
+    # File uploaders for offer letter and resume
+    uploaded_offer_letter = st.file_uploader("Upload Offer Letter PDF", type="pdf")
+    uploaded_resume = st.file_uploader("Upload Resume PDF", type="pdf")
 
-# Function to generate improvements
-def generate_improvements(qualifications, discipline, internship_offer, resume_text):
-    instructions = f"You are a resume evaluator, provide detailed suggestions and improvements in bullet points for the following internship offer letter: {qualifications}, {discipline}, {internship_offer}, when prompted with RESUME CONTENTS"
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        system_instruction=instructions
-    )
-    response_stream = model.generate_content(f"RESUME CONTENTS: {resume_text}", stream=True)
-    
-    response_text = ""
-    for response in response_stream:
-        response_text += response.text
-        yield response.text
+    if uploaded_offer_letter and uploaded_resume:
+        offer_letter_text = extract_text_from_pdf(uploaded_offer_letter)
+        resume_text = extract_text_from_pdf(uploaded_resume)
 
+        # Compute similarity score
+        similarity_score = compute_cosine_similarity(offer_letter_text, resume_text)
+        st.write(f"Similarity Score: {similarity_score:.2f}")
 
-def offer_letter_process_pdf_2(offer_letter_file,resume_file):
-    offer_letter_text = extract_text_from_pdf(offer_letter_file)
-    resume_text = extract_text_from_pdf(resume_file)
+        # Extract and display specific sections from offer letter
+        qualifications = extract_content_after_keyword(offer_letter_text, 'Required Qualifications and Skills')
+        discipline = extract_content_after_keyword(offer_letter_text, 'General Discipline')
+        internship_offer = extract_content_after_keyword(offer_letter_text, 'Internship Offered')
 
-    similarity_score = compute_cosine_similarity(offer_letter_text, resume_text)
-    st.write(f"Similarity Score: {similarity_score:.2f}")
+        st.write("### Offer Letter Content")
+        st.write(f"**Required Qualifications and Skills:**\n{qualifications}")
+        st.write(f"**General Discipline:**\n{discipline}")
+        st.write(f"**Internship Offered:**\n{internship_offer}")
 
-    # Extract and display specific sections
-    qualifications = extract_content_after_keyword(offer_letter_text, 'Required Qualifications and Skills')
-    discipline = extract_content_after_keyword(offer_letter_text, 'General Discipline')
-    internship_offer = extract_content_after_keyword(offer_letter_text, 'Internship Offered')
+        # Highlight missing keywords in resume
+        st.write("### Missing Keywords in Resume")
+        missing_keywords = highlight_missing_keywords(qualifications + ' ' + discipline + ' ' + internship_offer, resume_text)
+        st.write(", ".join(missing_keywords))
 
-    st.write("### Offer Letter Content")
-    st.write(f"**Required Qualifications and Skills:**\n{qualifications}")
-    st.write(f"**General Discipline:**\n{discipline}")
-    st.write(f"**Internship Offered:**\n{internship_offer}")
-
-    # Highlight missing keywords
-    st.write("### Missing Keywords in Resume")
-    missing_keywords = highlight_missing_keywords(qualifications + ' ' + discipline + ' ' + internship_offer, resume_text)
-    st.write(", ".join(missing_keywords))
-
-  # Generate improvements
-    st.write("### Suggested Improvements for Resume")
-    placeholder = st.empty()
-    improvements_generator = generate_improvements(qualifications, discipline, internship_offer, resume_text)
-    for improvement in improvements_generator:
-        print(improvement)
-        placeholder.code(improvement)
+        # Generate improvements for the resume
+        st.write("### Suggested Improvements for Resume")
+        generate_improvements(qualifications, discipline, internship_offer, resume_text)
