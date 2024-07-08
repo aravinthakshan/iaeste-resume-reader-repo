@@ -1,3 +1,4 @@
 Add a simialiry check to cross check a resume against the requirements and provide a score on multiple factors 
 Make a web scrapper to automatically be able to fill the fields 
 get better at extracting the required content 
+give recommendations as to what is missing 
