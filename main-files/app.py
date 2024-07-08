@@ -3,7 +3,7 @@ from pdf_reader import process_pdf as offer_letter_process_pdf, extract_content_
 from semantic_search import compute_cosine_similarity, extract_text_from_pdf, highlight_missing_keywords, generate_improvements,main
 
 # Navigation
-page = st.selectbox("Choose a page", ["Offer Letter Extractor", "Semantic Search"])
+page = st.selectbox("Choose a page", ["Offer Letter Extractor", "Resume Review"])
 
 if page == "Offer Letter Extractor":
     st.title("Offer Letter PDF Content Extractor")
@@ -12,6 +12,6 @@ if page == "Offer Letter Extractor":
     if uploaded_file is not None:
         offer_letter_process_pdf(uploaded_file)
 
-elif page == "Semantic Search":
-    st.title("Semantic Search Between Offer Letter and Resume")
+elif page == "Resume Review":
+    st.title("Resume Review")
     main()

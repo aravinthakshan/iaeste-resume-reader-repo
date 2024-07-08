@@ -4,7 +4,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
 from api_keys import API_KEY  # Assuming you have API_KEY imported
-import re
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.tag import pos_tag
 
 # Access your API key as an environment variable.
 genai.configure(api_key=API_KEY)
@@ -41,32 +44,45 @@ def compute_cosine_similarity(text1, text2):
     cosine_sim = cosine_similarity(vectors)
     return cosine_sim[0, 1]
 
-def LLM_Response(chat,resume_text):
-    response = chat.send_message(resume_text,stream=True)
+# Function to interact with the Generative AI model
+def interact_with_model(model, resume_text):
+    response = model.send_message(resume_text, stream=True)
     return response
 
 # Function to generate improvements using Gemini API
 def generate_improvements(qualifications, discipline, internship_offer, resume_text):
-    instructions = f"You are a Resume Reviewer, here is the job description for an internship: {qualifications}, {discipline}, {internship_offer}, when prompted with a candidates RESUME CONTENTS; provide detailed suggestions and improvements"
+    instructions = f"You are a Resume Reviewer, here is the job description for an internship: {qualifications}, {discipline}, {internship_offer}, when prompted with a candidates RESUME CONTENTS; provide detailed suggestions and improvements, give the output in proper markdown format"
 
     model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-1.5-pro",
             system_instruction=instructions
         )
         
     chat = model.start_chat()
 
-    result = LLM_Response(chat,resume_text)
+    result = interact_with_model(chat, resume_text)
 
     for word in result:
-        st.text(word.text)
+        # Clean up the text to prevent messy formatting
+        text = word.text
+        if text:  # Check if text is not empty
+            st.markdown(text)  # Display each response on a new line
 
-# Function to highlight missing keywords
+# Function to highlight missing keywords (nouns) in resume
 def highlight_missing_keywords(offer_text, resume_text):
-    offer_words = set(offer_text.split())
-    resume_words = set(resume_text.split())
-    missing_words = offer_words - resume_words
-    return missing_words
+    # Tokenize and tag offer letter text to get nouns
+    offer_tokens = word_tokenize(offer_text)
+    offer_tags = nltk.pos_tag(offer_tokens)
+    offer_nouns = [word for word, pos in offer_tags if pos.startswith('NN')]
+
+    # Tokenize and tag resume text to get nouns
+    resume_tokens = word_tokenize(resume_text)
+    resume_tags = nltk.pos_tag(resume_tokens)
+    resume_nouns = [word for word, pos in resume_tags if pos.startswith('NN')]
+
+    # Identify missing nouns in resume
+    missing_nouns = set(offer_nouns) - set(resume_nouns)
+    return missing_nouns
 
 # Streamlit app
 def main():
@@ -93,11 +109,12 @@ def main():
         st.write(f"**General Discipline:**\n{discipline}")
         st.write(f"**Internship Offered:**\n{internship_offer}")
 
-        # Highlight missing keywords in resume
-        st.write("### Missing Keywords in Resume")
-        missing_keywords = highlight_missing_keywords(qualifications + ' ' + discipline + ' ' + internship_offer, resume_text)
-        st.write(", ".join(missing_keywords))
+        # Highlight missing nouns in resume
+        st.write("### Missing Nouns in Resume")
+        missing_nouns = highlight_missing_keywords(qualifications + ' ' + discipline + ' ' + internship_offer, resume_text)
+        st.write(", ".join(missing_nouns))
 
         # Generate improvements for the resume
         st.write("### Suggested Improvements for Resume")
         generate_improvements(qualifications, discipline, internship_offer, resume_text)
+
